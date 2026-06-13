@@ -66,10 +66,13 @@ exclusive = false
 
 [[models]]
 name = "chat"
-description = "Primary chat / agent model for coding"
-hf_repo = "Qwen/Qwen2.5-Coder-32B-Instruct-GGUF"
-hf_file = "qwen2.5-coder-32b-instruct-q4_k_m.gguf"
+description = "Primary chat / agent model for coding (Qwen3-Coder 30B-A3B MoE)"
+hf_repo = "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF"
+hf_file = "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
 context_size = 32768
+# --jinja enables the chat template Qwen3-Coder needs for tool/function calling
+# (used by agentic VSCode extensions).
+extra_args = ["--jinja"]
 aliases = ["gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet-latest", "default"]
 
 [[models]]
