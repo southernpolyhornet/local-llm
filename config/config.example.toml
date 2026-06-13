@@ -1,0 +1,91 @@
+# local-llm configuration
+#
+# This file lives at /etc/local-llm/config.toml and is MUTABLE.
+# Edit it any time with:   local-llm configure
+# Apply changes with:      local-llm reload   (configure offers to do this for you)
+#
+# It drives two systemd services:
+#   - local-llm-arbiter      (llama-swap: the OpenAI/Anthropic-compatible front door)
+#   - local-llm-resourced    (watches this file, regenerates the arbiter config,
+#                             monitors GPU/RAM, and reloads the arbiter)
+
+[storage]
+# Where GGUF model weights are stored on disk. You own this path; point it at a
+# big/fast drive if you like. Models pulled via `hf_repo` land here too.
+models_dir = "/var/lib/local-llm/models"
+# Hugging Face cache directory (used for `hf_repo` downloads).
+hf_cache_dir = "/var/lib/local-llm/hf"
+# Allow llama.cpp to download missing models from Hugging Face on first use.
+auto_download = true
+
+[server]
+# Address the arbiter (llama-swap) listens on. Point your VSCode extension here,
+# e.g. OpenAI base URL http://127.0.0.1:8080/v1 (Anthropic API is also served).
+listen = "127.0.0.1:8080"
+# Expose Prometheus-style metrics from the arbiter.
+metrics = true
+# Seconds to wait for a model server to become healthy before failing a request.
+health_check_timeout = 120
+# Log level for the arbiter: debug | info | warn | error
+log_level = "info"
+
+[resources]
+# Soft budgets used by local-llm-resourced for validation/warnings. 0 = autodetect.
+vram_budget_mb = 0
+ram_budget_mb = 0
+# How often (seconds) resourced samples GPU/RAM utilization for `local-llm status`.
+sample_interval = 10
+
+[defaults]
+# Defaults applied to every [[models]] entry unless overridden there.
+ttl = 300              # idle seconds before a model is unloaded to free VRAM
+context_size = 8192
+flash_attention = true
+# Number of layers to offload to the GPU (99 = all). Ignored on CPU builds.
+gpu_layers = 99
+# Extra arguments appended to every `llama-server` invocation.
+extra_args = []
+
+# ----------------------------------------------------------------------------
+# Groups keep multiple models resident together. The "coding" group below keeps
+# the chat model and the autocomplete model loaded at the same time so your
+# editor's tab-completion never evicts your chat/agent model and vice-versa.
+# ----------------------------------------------------------------------------
+[[groups]]
+name = "coding"
+members = ["chat", "autocomplete"]
+# swap = false  -> members can run simultaneously (default for groups here)
+swap = false
+# exclusive = true -> loading any member unloads models from other groups
+exclusive = false
+
+# ----------------------------------------------------------------------------
+# Models. Each entry becomes one routable model name on the API. Use `aliases`
+# so editors that hard-code names like "gpt-4o" still route to a local model.
+# ----------------------------------------------------------------------------
+
+[[models]]
+name = "chat"
+description = "Primary chat / agent model for coding"
+hf_repo = "Qwen/Qwen2.5-Coder-32B-Instruct-GGUF"
+hf_file = "qwen2.5-coder-32b-instruct-q4_k_m.gguf"
+context_size = 32768
+aliases = ["gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet-latest", "default"]
+
+[[models]]
+name = "autocomplete"
+description = "Small, low-latency fill-in-the-middle model for tab completion"
+hf_repo = "Qwen/Qwen2.5-Coder-1.5B-GGUF"
+hf_file = "qwen2.5-coder-1.5b-q8_0.gguf"
+context_size = 8192
+# Keep the tiny completion model around longer; it's cheap to hold in VRAM.
+ttl = 1800
+aliases = ["copilot-codex", "fim"]
+
+# Example of a model loaded from a local GGUF file instead of Hugging Face.
+# The `path` is resolved relative to [storage].models_dir if not absolute.
+# [[models]]
+# name = "embed"
+# path = "nomic-embed-text-v1.5.Q8_0.gguf"
+# context_size = 2048
+# extra_args = ["--embeddings"]
