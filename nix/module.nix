@@ -221,10 +221,16 @@ in
         OPENAI_API_BASE_URL = "http://127.0.0.1:${toString cfg.port}/v1";
         OPENAI_API_KEY = "local-llm"; # the arbiter ignores the key
         ENABLE_OLLAMA_API = "False";
-        WEBUI_AUTH = if cfg.webui.auth then "True" else "False";
-        # Keep everything offline/local-friendly for a test box.
         ENABLE_OPENAI_API = "True";
-        HF_HUB_OFFLINE = "1";
+        WEBUI_AUTH = if cfg.webui.auth then "True" else "False";
+        # Avoid Open WebUI downloading a SentenceTransformer embedding model at
+        # startup (it hard-fails without one). Point RAG at the arbiter instead;
+        # this lets the service start with no extra downloads. Chat works fully;
+        # document RAG only works if you configure an embedding-capable model.
+        RAG_EMBEDDING_ENGINE = "openai";
+        # Make the env above authoritative on every start instead of being
+        # captured into the DB on first launch (keeps config reproducible).
+        ENABLE_PERSISTENT_CONFIG = "False";
       };
     };
 
@@ -232,9 +238,10 @@ in
       description = "local-llm resource manager (config watcher + monitor)";
       wantedBy = [ "multi-user.target" ];
       # systemctl (restart arbiter) + nvidia-smi/rocm-smi (best-effort
-      # monitoring, found in the system profile).
+      # monitoring, found in the system profile). mkForce overrides the default
+      # service PATH that systemd.nix sets.
       environment = daemonEnv // {
-        PATH = "${pkgs.systemd}/bin:/run/current-system/sw/bin";
+        PATH = lib.mkForce "/run/current-system/sw/bin:${lib.makeBinPath [ pkgs.systemd pkgs.coreutils ]}";
       };
       serviceConfig = {
         Type = "notify";

@@ -28,6 +28,10 @@ metrics = true
 health_check_timeout = 120
 # Log level for the arbiter: debug | info | warn | error
 log_level = "info"
+# Show model aliases as separate entries in the /v1/models listing. Off by
+# default so chat UIs (e.g. Open WebUI) list only the real model names; aliases
+# still work for routing requests.
+list_aliases = false
 
 [resources]
 # Soft budgets used by local-llm-resourced for validation/warnings. 0 = autodetect.

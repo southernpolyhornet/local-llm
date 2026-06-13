@@ -18,6 +18,8 @@ struct SwapConfig {
     log_level: String,
     #[serde(rename = "startPort")]
     start_port: u32,
+    #[serde(rename = "includeAliasesInList")]
+    include_aliases_in_list: bool,
     models: BTreeMap<String, SwapModel>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     groups: BTreeMap<String, SwapGroup>,
@@ -166,6 +168,7 @@ pub fn generate(cfg: &Config, rt: &Runtime) -> Generated {
         health_check_timeout: cfg.server.health_check_timeout,
         log_level: cfg.server.log_level.clone(),
         start_port: 9800,
+        include_aliases_in_list: cfg.server.list_aliases,
         models,
         groups,
     };

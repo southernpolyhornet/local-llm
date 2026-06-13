@@ -73,5 +73,12 @@
         nixpkgs.overlays = [ overlay ];
       };
       nixosModules.default = self.nixosModules.local-llm;
+
+      # Throwaway VM for testing the full install flow:
+      #   nixos-rebuild build-vm --flake .#vm && ./result/bin/run-*-vm
+      nixosConfigurations.vm = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [ self.nixosModules.default ./nix/vm.nix ];
+      };
     };
 }

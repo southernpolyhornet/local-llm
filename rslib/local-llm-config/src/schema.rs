@@ -63,6 +63,10 @@ pub struct Server {
     pub metrics: bool,
     pub health_check_timeout: u32,
     pub log_level: String,
+    /// When true, model aliases are also shown in the `/v1/models` listing
+    /// (so chat UIs display them as separate models). When false they still
+    /// route requests but only the real model names are listed.
+    pub list_aliases: bool,
 }
 
 impl Default for Server {
@@ -72,6 +76,7 @@ impl Default for Server {
             metrics: true,
             health_check_timeout: 120,
             log_level: "info".into(),
+            list_aliases: false,
         }
     }
 }
