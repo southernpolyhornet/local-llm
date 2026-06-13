@@ -149,6 +149,39 @@ in
       default = false;
       description = "Open {option}`port` in the firewall for the arbiter endpoint.";
     };
+
+    webui = {
+      enable = lib.mkEnableOption ''
+        a local chat web UI for testing. This wraps the existing
+        {option}`services.open-webui` (a polished OpenAI-compatible chat GUI)
+        and points it at the arbiter, rather than shipping a bespoke UI'';
+
+      port = lib.mkOption {
+        type = lib.types.port;
+        default = 8081;
+        description = "Port the chat web UI listens on.";
+      };
+
+      host = lib.mkOption {
+        type = lib.types.str;
+        default = "127.0.0.1";
+        description = "Address the chat web UI binds to.";
+      };
+
+      auth = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Require login in the web UI. Off by default for easy local testing.
+        '';
+      };
+
+      openFirewall = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Open {option}`webui.port` in the firewall.";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -170,7 +203,30 @@ in
       "d ${cfg.dataDir} 0750 ${cfg.user} ${cfg.group} - -"
     ];
 
-    networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
+    networking.firewall.allowedTCPPorts =
+      (lib.optional cfg.openFirewall cfg.port)
+      ++ (lib.optional (cfg.webui.enable && cfg.webui.openFirewall) cfg.webui.port);
+
+    # Optional chat GUI for testing: reuse the packaged Open WebUI service and
+    # point it at the arbiter's OpenAI-compatible endpoint. (We deliberately do
+    # not ship a bespoke UI.)
+    services.open-webui = lib.mkIf cfg.webui.enable {
+      enable = true;
+      host = cfg.webui.host;
+      port = cfg.webui.port;
+      openFirewall = false; # handled above to keep one source of truth
+      environment = {
+        # Arbiter endpoint. Assumes it listens on 127.0.0.1:${toString cfg.port}
+        # (keep `port` in sync with `server.listen` in config.toml).
+        OPENAI_API_BASE_URL = "http://127.0.0.1:${toString cfg.port}/v1";
+        OPENAI_API_KEY = "local-llm"; # the arbiter ignores the key
+        ENABLE_OLLAMA_API = "False";
+        WEBUI_AUTH = if cfg.webui.auth then "True" else "False";
+        # Keep everything offline/local-friendly for a test box.
+        ENABLE_OPENAI_API = "True";
+        HF_HUB_OFFLINE = "1";
+      };
+    };
 
     systemd.services.local-llm-resourced = {
       description = "local-llm resource manager (config watcher + monitor)";
